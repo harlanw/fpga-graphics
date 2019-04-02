@@ -1,0 +1,28 @@
+#!/bin/sh -e
+
+B="\e[1m"
+Z="\e[0m"
+
+function makesv () {
+	out="${filename%.*}.sv"
+	time=$(date +"%T")
+	date=$(date '+%Y-%m-%d')
+
+	echo -e -n "$B[$time]$Z writing $out"
+
+	ts=$(date +%s%N);
+
+	sed -z -r 's/}\n\t+else\n\t+\{/end else begin/g; s/([:\ a-z_]*)\n\t*\{/ begin\1/g; s/}/end/g' $1 > $out
+	header=$(sed 's/__FILE__/'$out'/g; s/__DATE__/'$date' '$time'/g' header.svh)
+	printf '%s\n%s\n' "$header" "$(cat $out)" > $out
+
+	dt=$(($(date +%s%N) - $ts))
+	tt=$(bc <<< 'scale=2; '$dt'/1000000')
+
+	echo " ($tt ms)"
+}
+
+inotifywait -q -m -e close_write *.sv2 |
+while read -r filename event; do
+	makesv $filename
+done
